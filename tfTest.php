@@ -190,17 +190,17 @@ if (!class_exists("TweetFeed")) {
 				$title = $this->get_message_from_url($url);
 				if ($title != '') {
 					$msg = $this->extract_message_from_twitter_title($title);
-					if($msg[0] == '@'){
+					if($msg[0] == '@' && get_option('tf_show_replies') == 'on'){
 						unset($msg);
 						$this->update_twitter_message();
 					}
-
 					$msg_chunks = explode(" ", $msg);
+					
 					foreach($msg_chunks as $chunk){
-						if(strstr($chunk, '@') && 	strlen($chunk) > 1){
+						if(strstr($chunk, '@') && 	strlen($chunk) > 1 && get_option('tf_link_users') == 'on'){
 							$out_msg .= " <a href='http://twitter.com/" . substr($chunk, 1) . "'>" . $chunk . "</a> ";
 						}
-						elseif(strstr($chunk, 'http://')){
+						elseif(strstr($chunk, 'http://') && get_option('tf_create_links') == 'on'){
 							$out_msg .= " <a href='" . $chunk . "'>" . $chunk . "</a> ";
 						}
 						else{
