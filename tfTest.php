@@ -10,7 +10,8 @@ if (!class_exists("TweetFeed")) {
 		}
 		
 		function init() {
-			$this->getAdminOptions();
+			//$this->getAdminOptions();
+			echo 'I saved the world';
 		}
 		
 		//Returns an array of admin options
@@ -152,35 +153,13 @@ if (!class_exists("TweetFeed")) {
 
 		// Returns the stored message
 		function get_twitter_msg() {
-			//$msg = get_option();
-			//echo $msg;
-			
-			$msg = $this->update_twitter_message();
-			if($msg[0] == '@'){
-				unset($msg);
-				$this->get_twitter_msg();
-			}
-
-			$msg_chunks = explode(" ", $msg);
-			foreach($msg_chunks as $chunk){
-				if(strstr($chunk, '@') && 	strlen($chunk) > 1){
-					$out_msg .= " <a href='http://twitter.com/" . substr($chunk, 1) . "'>" . $chunk . "</a> ";
-				}
-				elseif(strstr($chunk, 'http://')){
-					$out_msg .= " <a href='" . $chunk . "'>" . $chunk . "</a> ";
-				}
-				else{
-					$out_msg .= " " . $chunk;
-				}
-			}
-			echo $out_msg;
-			unset($out_msg);
-			unset($this->page);
-			unset($this->last);
+			$msg = get_option('tf_twitter_msg');
+			echo $msg;
 		}
 		
 		// Called by hook into wp_head. Checks for message expiry
 		function check_twitter_cache() {
+			echo '<!--This is where the magic happens. -->';
 			$this->tf_array = $this->getAdminOptions();
 			
 			$cache_mins = get_option('tf_cache_mins');
@@ -211,7 +190,28 @@ if (!class_exists("TweetFeed")) {
 				$title = $this->get_message_from_url($url);
 				if ($title != '') {
 					$msg = $this->extract_message_from_twitter_title($title);
-					return $msg;
+					if($msg[0] == '@'){
+						unset($msg);
+						$this->update_twitter_message();
+					}
+
+					$msg_chunks = explode(" ", $msg);
+					foreach($msg_chunks as $chunk){
+						if(strstr($chunk, '@') && 	strlen($chunk) > 1){
+							$out_msg .= " <a href='http://twitter.com/" . substr($chunk, 1) . "'>" . $chunk . "</a> ";
+						}
+						elseif(strstr($chunk, 'http://')){
+							$out_msg .= " <a href='" . $chunk . "'>" . $chunk . "</a> ";
+						}
+						else{
+							$out_msg .= " " . $chunk;
+						}
+					}
+					update_option('tf_twitter_msg', $out_msg);
+					update_option('tf_last_cache_time', time());
+					unset($out_msg);
+					unset($this->page);
+					unset($this->last);
 				}
 			}
 		}
@@ -238,24 +238,19 @@ if (!class_exists("TweetFeed")) {
 			$startTag = "<$tag>";
 			$endTag = "</$tag>";
 
-			$inItem = true;
-
 			$offset = $this->last;
-			$titlePos = $this->strposOffset($itemTag, $this->page, $offset);
-			$this->page = substr($this->page, $titlePos + 6); 
+			//$titlePos = $this->strposOffset($itemTag, $this->page, $offset);
+			$this->page = substr($this->page, strpos($this->page, '<item>') + 6); 
 			$lines = explode("\n",$this->page);
+			//print_r($lines);
 			foreach ($lines as $s) {
 
 					$s = rtrim($s);		
-					if (strpos($s, $itemTag)) {
-						$inItem = true;
-					}
-					if ($inItem) {
-						$msg .= $s;
-					}
-					if ($inItem && strpos($s, $endTag)) {
-						$msg = substr_replace($msg, '', strpos($msg, $endTag));
-						$msg = substr($msg, strpos($msg, $startTag) + strlen($startTag));
+					$msg .= $s;
+					
+					if (strpos($s, '</title>')) {
+						$msg = substr_replace($msg, '', strpos($msg, '</title>'));
+						$msg = substr($msg, strpos($msg, '<title>') + strlen('<title>'));
 						break;
 					}
 
@@ -287,6 +282,7 @@ if (!class_exists("TweetFeed")) {
 
 if (class_exists("TweetFeed")) {
 	$tf = new TweetFeed();
+	//echo "create tf";
 }
 
 //Actions and Filters
@@ -304,8 +300,10 @@ if (isset($tf)) {
 		}
 	}
 	//Actions
+	add_action('wp_head', array(&$tf, 'check_twitter_cache'), 1);
 	add_action('tweetfeed/tfTest.php',  array(&$tf, 'init'));
 	add_action('admin_menu', 'tweetfeed_ap');
+	add_action('get_twitter_message', array(&$tf, 'get_twitter_msg'));
 	//Filters
 }
 
